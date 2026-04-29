@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+targetDir="${1:-dist}"
+backupDir="${2:-backup}"
+
+
+get_file_name() {
+    local dateStr
+    local baseName
+    dateStr=$(date +"%Y%m%d")
+    baseName=$(basename -- "$targetDir")
+
+    [[ -f "$targetDir" ]] && baseName="${baseName%%.*}"
+
+    local count=1
+    while true; do
+        local suffix
+        suffix=$(printf "%03d" "$count")
+        local name="${baseName}.${dateStr}${suffix}.tar.gz"
+
+        if [[ ! -f "$backupDir/$name" ]]; then
+            echo "$name"
+            return 0
+        fi
+
+        ((count++))
+    done
+}
+
+
+# 检查目标是否存在 (-e 支持文件和目录)
+if [[ ! -e "$targetDir" ]]; then
+    echo "Error: Target '$targetDir' does not exist." >&2
+    exit 1
+fi
+
+mkdir -p "$backupDir"
+fileName=$(get_file_name)
+
+echo "Compressing $targetDir..."
+
+# 使用 -C 优化压缩包结构：只打包目标本身，不带多层父目录
+tar -zcf "$backupDir/$fileName" -C "$(dirname "$targetDir")" "$(basename "$targetDir")"
+
+echo "Backup successfully: $backupDir/$fileName"
